@@ -184,13 +184,12 @@ def addShift(connection : int) -> None:
 
     sub_qc_shift = QuantumCircuit(log_num_nodes)
 
-    binary_node1 = bin(connections[connection]["node1"])[2:].zfill(log_num_nodes)
-    binary_node2 = bin(connections[connection]["node2"])[2:].zfill(log_num_nodes)
+    binary_node1 = bin(connections[connection]["node1"])[2:].zfill(log_num_nodes)[::-1] #getting little endian representation
+    binary_node2 = bin(connections[connection]["node2"])[2:].zfill(log_num_nodes)[::-1] #getting little endian representation
 
     for qubit in range(log_num_nodes):
         if binary_node1[qubit] != binary_node2[qubit]:
-            # Applying the X gates from bottom to top, so that 100 is not applied as 001 and such, basically Qiskit ordering being dumb
-            sub_qc_shift.x(log_num_nodes-1 - qubit)
+            sub_qc_shift.x(qubit)
 
     shift_gate = sub_qc_shift.to_gate().control(log_num_connections, label=f"S{connection}", ctrl_state=binary_connection)
 
@@ -246,5 +245,5 @@ if __name__ == "__main__":
 
     getProbabilities()
 
-    qc.draw(output="mpl")
+    qc.draw(output="mpl",reverse_bits=True) 
     plt.show()
