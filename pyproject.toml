@@ -1,9 +1,11 @@
 [project]
-name = "discrete-quantum-walk"
+name = "QGEL"
 version = "0.1.0"
-description = "Add your description here"
+authors = ["Murilo de Carvalho Andrade", "Pedro Henrique Gasparetto Lugão"]
+description = "A library for working with graphs using quantum algorithms"
 readme = "README.md"
 requires-python = ">=3.12"
+license = {file = "LICENSE"}
 dependencies = [
     "matplotlib>=3.10.6",
     "pylatexenc>=2.10",

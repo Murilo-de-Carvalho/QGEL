@@ -5,109 +5,7 @@ import matplotlib.pyplot as plt
 
 from qiskit.quantum_info import Statevector
 
-# ===================================
-# Global variables
-# ===================================
-
-num_nodes = 8
-adj_matrix = [
-    [0, 0, 1, 0, 0, 0, 0, 1],
-    [0, 0, 0, 0, 1, 0, 0, 0],
-    [1, 0, 0, 0, 1, 0, 1, 0],
-    [0, 0, 0, 0, 1, 1, 0, 0],
-    [0, 1, 1, 1, 0, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0]
-]
-
-#num_nodes = 4
-#adj_matrix = [
-#    [0, 1, 1, 1],
-#    [1, 0, 1, 0],
-#    [1, 1, 0, 0],
-#    [1, 0, 0, 0]
-#]
-
-#num_nodes = 5
-#adj_matrix = [
-#    [0, 1, 0, 1, 0],
-#    [1, 0, 1, 0, 0],
-#    [0, 1, 0, 0, 1],
-#    [1, 0, 0, 0, 0],
-#    [0, 1, 0, 0, 0]
-#]
-
-nodes : dict = {}
-connections : dict = {}
-
-num_connections = 0
-
-steps : int
-
-log_num_nodes : int
-log_num_connections : int
-total_num_qubits : int
-
-CXGate : XGate
-
-application_list_CXGate : list
-application_list_coin : list
-application_list_shift : list
-
-gates : list = [] # Stored gates so when running big circuits it avoids wasteful repeating of gate calculations
-
-qc : QuantumCircuit
-
-def gatherData() -> None:
-
-    # Telling python to update the global variables instead of creating local ones
-    global nodes
-    global connections
-
-    global num_connections
-    
-    global steps
-    
-    global log_num_nodes
-    global log_num_connections
-    global total_num_qubits
-
-    global CXGate
-
-    global application_list_CXGate
-    global application_list_coin
-    global application_list_shift
-
-    for i in range(num_nodes):
-        nodes[i] = {"degree": 0, "connections": []}
-
-    for i in range(num_nodes):
-        for j in range(i, num_nodes):
-            if (adj_matrix[i][j]):
-                connections[num_connections] = {"node1": i, "node2": j}
-                nodes[i]["degree"] += 1
-                nodes[i]["connections"].append(num_connections)
-                nodes[j]["degree"] += 1
-                nodes[j]["connections"].append(num_connections)
-                num_connections += 1
-
-    steps = 1#int(input("How many steps should the walk simulate?: "))
-
-    log_num_nodes = int(np.ceil(np.log2(num_nodes)))
-
-    log_num_connections = int(np.ceil(np.log2(num_connections)))
-
-    total_num_qubits = log_num_nodes + log_num_connections
-
-    CXGate = XGate().control(log_num_connections-1)
-    application_list_CXGate = list(range(log_num_connections))
-
-    application_list_coin = list(range(log_num_connections, total_num_qubits)) + list(range(log_num_connections))
-
-    application_list_shift = list(range(total_num_qubits))
-
-def prepareCircuit() -> None:
+def __prepareCircuit(qc : QuantumCircuit, total_num_qubits : int, nodes : dict[any], log_num_nodes : int, log_num_connections : int, num_nodes : int) -> None:
 
     amplitudes = []
 
@@ -134,7 +32,7 @@ def prepareCircuit() -> None:
 
     qc.prepare_state(amplitudes)
 
-def getAmplitudeOfNode(node : int) -> list:
+def __getAmplitudeOfNode(node : int, nodes : dict[any], log_num_connections : int) -> list[float]:
 
     amplitudes = []
 
@@ -148,13 +46,13 @@ def getAmplitudeOfNode(node : int) -> list:
 
     return amplitudes
 
-def addCoin(node: int) -> None:
+def __addCoin(node: int, nodes : dict[any], application_list : list[int], gates : list[any], log_num_nodes : int, log_num_connections : int, CXGate : any, application_list_CXGate : list[int]) -> None:
 
     binary_node = bin(node)[2:].zfill(log_num_nodes)
 
     sub_qc_coin = QuantumCircuit(log_num_connections)
 
-    amplitudes = getAmplitudeOfNode(node)
+    amplitudes = __getAmplitudeOfNode(node, nodes, log_num_connections)
 
     # Apply Si dagger
     sub_qc_coin.prepare_state(amplitudes).inverse()
@@ -174,11 +72,9 @@ def addCoin(node: int) -> None:
 
     coin_gate = sub_qc_coin.to_gate().control(log_num_nodes, label=f"C{node}", ctrl_state=binary_node)
 
-    gates.append([coin_gate, application_list_coin])
+    gates.append([coin_gate, application_list])
 
-    qc.append(coin_gate, application_list_coin)
-
-def addShift(connection : int) -> None:
+def __addShift(connection : int, connections : dict[str, int], application_list : list[int], gates : list[any], log_num_nodes : int, log_num_connections : int) -> None:
 
     binary_connection = bin(connection)[2:].zfill(log_num_connections)
 
@@ -193,10 +89,9 @@ def addShift(connection : int) -> None:
 
     shift_gate = sub_qc_shift.to_gate().control(log_num_connections, label=f"S{connection}", ctrl_state=binary_connection)
 
-    gates.append([shift_gate, application_list_shift])
-    qc.append(shift_gate, application_list_shift)
+    gates.append([shift_gate, application_list])
 
-def getProbabilities() -> None:
+def __getProbabilities(qc : QuantumCircuit, num_connections : int, log_num_nodes : int, log_num_connections : int, num_nodes : int) -> None:
 
     sv = Statevector(qc)
     prob_dict = sv.probabilities_dict()
@@ -221,9 +116,43 @@ def getProbabilities() -> None:
     plt.bar(range(num_nodes), probabilities)
     plt.show()
 
-if __name__ == "__main__":
+def discreteTimeWalk(adj_matrix : list[list[int]], steps : int, show_probabilities : bool, print_connection_mapping : bool) -> QuantumCircuit:
 
-    gatherData()
+    num_nodes = len(adj_matrix)
+
+    nodes = {}
+
+    connections : dict[str, int] = {}
+
+    num_connections = 0
+
+    for i in range(num_nodes):
+        nodes[i] = {"degree": 0, "connections": []}
+
+    for i in range(num_nodes):
+        for j in range(i, num_nodes):
+            if (adj_matrix[i][j]):
+                connections[num_connections] = {"node1": i, "node2": j}
+                nodes[i]["degree"] += 1
+                nodes[i]["connections"].append(num_connections)
+                nodes[j]["degree"] += 1
+                nodes[j]["connections"].append(num_connections)
+                num_connections += 1
+
+    gates : list[list[int | list[int]]] = []
+
+    log_num_nodes = int(np.ceil(np.log2(num_nodes)))
+
+    log_num_connections = int(np.ceil(np.log2(num_connections)))
+
+    total_num_qubits = log_num_nodes + log_num_connections
+
+    CXGate = XGate().control(log_num_connections-1)
+    application_list_CXGate = list(range(log_num_connections))
+
+    application_list_coin = list(range(log_num_connections, total_num_qubits)) + list(range(log_num_connections))
+
+    application_list_shift = list(range(total_num_qubits))
 
     qr_nodes = QuantumRegister(log_num_nodes, 'q')
     qr_connections = QuantumRegister(log_num_connections, 'l')
@@ -231,19 +160,54 @@ if __name__ == "__main__":
 
     qc = QuantumCircuit(qr_connections, qr_nodes, cr)
 
-    prepareCircuit()
+    __prepareCircuit(qc, total_num_qubits, nodes, log_num_nodes, log_num_connections, num_nodes)
 
     for node in range(num_nodes):
-        addCoin(node)
+        __addCoin(node, nodes, application_list_coin, gates, log_num_nodes, log_num_connections, CXGate, application_list_CXGate)
 
     for connection in range(num_connections):
-        addShift(connection)
+        __addShift(connection, connections, application_list_shift, gates, log_num_nodes, log_num_connections)
 
-    for step in range(1, steps):
+    for _ in range(0, steps):
         for gate in range(len(gates)):
             qc.append(gates[gate][0], gates[gate][1]) # Appending the gate (gate[gate][0]) to it's application list (gates[gate][1])
 
-    getProbabilities()
+    if show_probabilities:
+        __getProbabilities(qc, num_connections, log_num_nodes, log_num_connections, num_nodes)
 
-    qc.draw(output="mpl",reverse_bits=True) 
-    plt.show()
+    if print_connection_mapping:
+        print("\n\t|NODE_1> <---[CONNECTION_ID]---> |NODE_2>\n")
+        for i in range(num_connections):
+            print(f"|{connections[i]["node1"]}> <---[{i} / {bin(i)[2:].zfill(log_num_connections)}]---> |{connections[i]["node2"]}>")
+            
+    return qc
+
+if __name__ == "__main__":
+
+    adj_matrix = [
+    [0, 0, 1, 0, 0, 0, 0, 1],
+    [0, 0, 0, 0, 1, 0, 0, 0],
+    [1, 0, 0, 0, 1, 0, 1, 0],
+    [0, 0, 0, 0, 1, 1, 0, 0],
+    [0, 1, 1, 1, 0, 0, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 1, 0]
+    ]
+
+    #adj_matrix = [
+    #    [0, 1, 1, 1],
+    #    [1, 0, 1, 0],
+    #    [1, 1, 0, 0],
+    #    [1, 0, 0, 0]
+    #]
+
+    #adj_matrix = [
+    #    [0, 1, 0, 1, 0],
+    #    [1, 0, 1, 0, 0],
+    #    [0, 1, 0, 0, 1],
+    #    [1, 0, 0, 0, 0],
+    #    [0, 1, 0, 0, 0]
+    #]
+
+    test = discreteTimeWalk(adj_matrix, 2, True, True)
