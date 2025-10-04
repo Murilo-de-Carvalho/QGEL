@@ -11,4 +11,6 @@ adj_matrix = [
     [1, 0, 0, 0, 0, 0, 1, 0]
 ]
 
-discreteTimeWalk(adj_matrix, 1, True, False)
+test = DiscreteTimeWalk(adj_matrix)
+test.simulate(1, False)
+test.showProbabilities(True)

@@ -1,3 +1,3 @@
-from discrete_walk import discreteTimeWalk
+from discrete_walk import DiscreteTimeWalk
 
-__all__ = ["discreteTimeWalk"]
+__all__ = ["DiscreteTimeWalk"]

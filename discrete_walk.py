@@ -5,182 +5,209 @@ import matplotlib.pyplot as plt
 
 from qiskit.quantum_info import Statevector
 
-def __prepareCircuit(qc : QuantumCircuit, total_num_qubits : int, nodes : dict[any], log_num_nodes : int, log_num_connections : int, num_nodes : int) -> None:
+class DiscreteTimeWalk:
 
-    amplitudes = []
+    def __init__(self, adj_matrix : list[list[int]]):
 
-    num_possibilities = 2 ** (total_num_qubits)
+        self.adj_matrix = adj_matrix
+        self.num_nodes = len(adj_matrix)
+        self._nodes = {}
+        self._connections : dict[str, int] = {}
+        self.num_connections = 0
 
-    for i in range(num_possibilities):
-        amplitudes.append(0)
+        for i in range(self.num_nodes):
+            self._nodes[i] = {"degree": 0, "connections": []}
 
-    for node in range(num_nodes):
+        for i in range(self.num_nodes):
+            for j in range(i, self.num_nodes):
+                if (adj_matrix[i][j]):
+                    self._connections[self.num_connections] = {"node1": i, "node2": j}
+                    self._nodes[i]["degree"] += 1
+                    self._nodes[i]["connections"].append(self.num_connections)
+                    self._nodes[j]["degree"] += 1
+                    self._nodes[j]["connections"].append(self.num_connections)
+                    self.num_connections += 1
 
-        inverse_of_sqrt_degree = 1/np.sqrt(nodes[node]["degree"])
+        self.gates : list[list[int | list[int]]] = []
 
-        for connection in nodes[node]["connections"]:
-            binary_node = bin(node)[2:].zfill(log_num_nodes)
-            binary_connection = bin(connection)[2:].zfill(log_num_connections)
-            state = binary_node + binary_connection
-            amplitudes[int(state, 2)] = inverse_of_sqrt_degree
+        self.log_num_nodes = int(np.ceil(np.log2(self.num_nodes)))
 
-    inverse_of_sqrt_num_nodes = 1/np.sqrt(num_nodes)
+        self.log_num_connections = int(np.ceil(np.log2(self.num_connections)))
 
-    for i in range(num_possibilities):
-        if amplitudes[i] != 0: # mathematically doesn't make a difference but is prittier to print and skip some divisions and multiplications
-            amplitudes[i] *= inverse_of_sqrt_num_nodes
+        self.total_num_qubits = self.log_num_nodes + self.log_num_connections
 
-    qc.prepare_state(amplitudes)
+        self._CXGate = XGate().control(self.log_num_connections-1)
+        self._application_list_CXGate = list(range(self.log_num_connections))
 
-def __getAmplitudeOfNode(node : int, nodes : dict[any], log_num_connections : int) -> list[float]:
+        self._application_list_coin = list(range(self.log_num_connections, self.total_num_qubits)) + list(range(self.log_num_connections))
 
-    amplitudes = []
+        self._application_list_shift = list(range(self.total_num_qubits))
 
-    inverse_of_sqrt_degree = 1/np.sqrt(nodes[node]["degree"])
+        qr_nodes = QuantumRegister(self.log_num_nodes, 'q')
+        qr_connections = QuantumRegister(self.log_num_connections, 'l')
+        cr = ClassicalRegister(self.log_num_nodes, 'c')
 
-    for i in range(2 ** log_num_connections):
-        amplitudes.append(0)
+        self.probabilities : list[list[float]] = []
+        self.qc = QuantumCircuit(qr_connections, qr_nodes, cr)
 
-    for connection in nodes[node]["connections"]:
-        amplitudes[connection] = inverse_of_sqrt_degree
 
-    return amplitudes
 
-def __addCoin(node: int, nodes : dict[any], application_list : list[int], gates : list[any], log_num_nodes : int, log_num_connections : int, CXGate : any, application_list_CXGate : list[int]) -> None:
+    def _prepareCircuit(self) -> None:
 
-    binary_node = bin(node)[2:].zfill(log_num_nodes)
+        amplitudes = []
 
-    sub_qc_coin = QuantumCircuit(log_num_connections)
+        num_possibilities = 2 ** (self.total_num_qubits)
 
-    amplitudes = __getAmplitudeOfNode(node, nodes, log_num_connections)
+        for i in range(num_possibilities):
+            amplitudes.append(0)
 
-    # Apply Si dagger
-    sub_qc_coin.prepare_state(amplitudes).inverse()
+        for node in range(self.num_nodes):
 
-    for i in range(0, log_num_connections):
-        sub_qc_coin.x(i)
+            inverse_of_sqrt_degree = 1/np.sqrt(self._nodes[node]["degree"])
 
-    sub_qc_coin.h(0)
-    sub_qc_coin.append(CXGate, application_list_CXGate[::-1])
-    sub_qc_coin.h(0)
+            for connection in self._nodes[node]["connections"]:
+                binary_node = bin(node)[2:].zfill(self.log_num_nodes)
+                binary_connection = bin(connection)[2:].zfill(self.log_num_connections)
+                state = binary_node + binary_connection
+                amplitudes[int(state, 2)] = inverse_of_sqrt_degree
 
-    for i in range(0, log_num_connections):
-        sub_qc_coin.x(i)
+        inverse_of_sqrt_num_nodes = 1/np.sqrt(self.num_nodes)
 
-    # Apply Si
-    sub_qc_coin.prepare_state(amplitudes)
+        for i in range(num_possibilities):
+            if amplitudes[i] != 0: # mathematically doesn't make a difference but is prittier to print and skip some divisions and multiplications
+                amplitudes[i] *= inverse_of_sqrt_num_nodes
 
-    coin_gate = sub_qc_coin.to_gate().control(log_num_nodes, label=f"C{node}", ctrl_state=binary_node)
+        self.qc.prepare_state(amplitudes)
 
-    gates.append([coin_gate, application_list])
 
-def __addShift(connection : int, connections : dict[str, int], application_list : list[int], gates : list[any], log_num_nodes : int, log_num_connections : int) -> None:
 
-    binary_connection = bin(connection)[2:].zfill(log_num_connections)
+    def _getAmplitudeOfNode(self, node : int) -> list[float]:
 
-    sub_qc_shift = QuantumCircuit(log_num_nodes)
+        amplitudes = []
 
-    binary_node1 = bin(connections[connection]["node1"])[2:].zfill(log_num_nodes)[::-1] #getting little endian representation
-    binary_node2 = bin(connections[connection]["node2"])[2:].zfill(log_num_nodes)[::-1] #getting little endian representation
+        inverse_of_sqrt_degree = 1/np.sqrt(self._nodes[node]["degree"])
 
-    for qubit in range(log_num_nodes):
-        if binary_node1[qubit] != binary_node2[qubit]:
-            sub_qc_shift.x(qubit)
+        for i in range(2 ** self.log_num_connections):
+            amplitudes.append(0)
 
-    shift_gate = sub_qc_shift.to_gate().control(log_num_connections, label=f"S{connection}", ctrl_state=binary_connection)
+        for connection in self._nodes[node]["connections"]:
+            amplitudes[connection] = inverse_of_sqrt_degree
 
-    gates.append([shift_gate, application_list])
+        return amplitudes
 
-def __getProbabilities(qc : QuantumCircuit, num_connections : int, log_num_nodes : int, log_num_connections : int, num_nodes : int) -> None:
 
-    sv = Statevector(qc)
-    prob_dict = sv.probabilities_dict()
 
-    probabilities = []
+    def _addCoin(self, node : int) -> None:
 
-    for node in range(num_nodes):
+        binary_node = bin(node)[2:].zfill(self.log_num_nodes)
 
-        prob = 0
+        sub_qc_coin = QuantumCircuit(self.log_num_connections)
 
-        for connection in range(num_connections):
+        amplitudes = self._getAmplitudeOfNode(node)
 
-            binary_node = bin(node)[2:].zfill(log_num_nodes)
-            binary_connection = bin(connection)[2:].zfill(log_num_connections)
+        # Apply Si dagger
+        sub_qc_coin.prepare_state(amplitudes).inverse()
 
-            full_binary = binary_node + binary_connection
+        for i in range(0, self.log_num_connections):
+            sub_qc_coin.x(i)
 
-            prob += prob_dict[full_binary] if full_binary in prob_dict else 0
+        sub_qc_coin.h(0)
+        sub_qc_coin.append(self._CXGate, self._application_list_CXGate[::-1])
+        sub_qc_coin.h(0)
 
-        probabilities.append(prob)
+        for i in range(0, self.log_num_connections):
+            sub_qc_coin.x(i)
 
-    plt.bar(range(num_nodes), probabilities)
-    plt.show()
+        # Apply Si
+        sub_qc_coin.prepare_state(amplitudes)
 
-def discreteTimeWalk(adj_matrix : list[list[int]], steps : int, show_probabilities : bool, print_connection_mapping : bool) -> QuantumCircuit:
+        coin_gate = sub_qc_coin.to_gate().control(self.log_num_nodes, label=f"C{node}", ctrl_state=binary_node)
 
-    num_nodes = len(adj_matrix)
+        self.gates.append([coin_gate, self._application_list_coin])
 
-    nodes = {}
 
-    connections : dict[str, int] = {}
 
-    num_connections = 0
+    def _addShift(self, connection : int) -> None:
 
-    for i in range(num_nodes):
-        nodes[i] = {"degree": 0, "connections": []}
+        binary_connection = bin(connection)[2:].zfill(self.log_num_connections)
 
-    for i in range(num_nodes):
-        for j in range(i, num_nodes):
-            if (adj_matrix[i][j]):
-                connections[num_connections] = {"node1": i, "node2": j}
-                nodes[i]["degree"] += 1
-                nodes[i]["connections"].append(num_connections)
-                nodes[j]["degree"] += 1
-                nodes[j]["connections"].append(num_connections)
-                num_connections += 1
+        sub_qc_shift = QuantumCircuit(self.log_num_nodes)
 
-    gates : list[list[int | list[int]]] = []
+        binary_node1 = bin(self._connections[connection]["node1"])[2:].zfill(self.log_num_nodes)[::-1] #getting little endian representation
+        binary_node2 = bin(self._connections[connection]["node2"])[2:].zfill(self.log_num_nodes)[::-1] #getting little endian representation
 
-    log_num_nodes = int(np.ceil(np.log2(num_nodes)))
+        for qubit in range(self.log_num_nodes):
+            if binary_node1[qubit] != binary_node2[qubit]:
+                sub_qc_shift.x(qubit)
 
-    log_num_connections = int(np.ceil(np.log2(num_connections)))
+        shift_gate = sub_qc_shift.to_gate().control(self.log_num_connections, label=f"S{connection}", ctrl_state=binary_connection)
 
-    total_num_qubits = log_num_nodes + log_num_connections
+        self.gates.append([shift_gate, self._application_list_shift])
 
-    CXGate = XGate().control(log_num_connections-1)
-    application_list_CXGate = list(range(log_num_connections))
 
-    application_list_coin = list(range(log_num_connections, total_num_qubits)) + list(range(log_num_connections))
 
-    application_list_shift = list(range(total_num_qubits))
+    def _getProbabilities(self) -> None:
 
-    qr_nodes = QuantumRegister(log_num_nodes, 'q')
-    qr_connections = QuantumRegister(log_num_connections, 'l')
-    cr = ClassicalRegister(log_num_nodes, 'c')
+        sv = Statevector(self.qc)
+        prob_dict = sv.probabilities_dict()
 
-    qc = QuantumCircuit(qr_connections, qr_nodes, cr)
+        probability_list : list[float] = []
 
-    __prepareCircuit(qc, total_num_qubits, nodes, log_num_nodes, log_num_connections, num_nodes)
+        for node in range(self.num_nodes):
 
-    for node in range(num_nodes):
-        __addCoin(node, nodes, application_list_coin, gates, log_num_nodes, log_num_connections, CXGate, application_list_CXGate)
+            prob = 0
 
-    for connection in range(num_connections):
-        __addShift(connection, connections, application_list_shift, gates, log_num_nodes, log_num_connections)
+            for connection in range(self.num_connections):
 
-    for _ in range(0, steps):
-        for gate in range(len(gates)):
-            qc.append(gates[gate][0], gates[gate][1]) # Appending the gate (gate[gate][0]) to it's application list (gates[gate][1])
+                binary_node = bin(node)[2:].zfill(self.log_num_nodes)
+                binary_connection = bin(connection)[2:].zfill(self.log_num_connections)
 
-    if show_probabilities:
-        __getProbabilities(qc, num_connections, log_num_nodes, log_num_connections, num_nodes)
+                full_binary = binary_node + binary_connection
 
-    if print_connection_mapping:
-        print("\n\t|NODE_1> <---[CONNECTION_ID]---> |NODE_2>\n")
-        for i in range(num_connections):
-            print(f"|{connections[i]["node1"]}> <---[{i} / {bin(i)[2:].zfill(log_num_connections)}]---> |{connections[i]["node2"]}>")
-            
-    return qc
+                prob += prob_dict[full_binary] if full_binary in prob_dict else 0
+
+            probability_list.append(prob)
+
+        self.probabilities.append(probability_list)
+
+
+
+    def simulate(self, steps : int, register_all_probabilities : bool):
+
+        self._prepareCircuit()
+
+        for node in range(self.num_nodes):
+            self._addCoin(node)
+
+        for connection in range(self.num_connections):
+            self._addShift(connection)
+
+        for _ in range(0, steps):
+            for gate in range(len(self.gates)):
+                self.qc.append(self.gates[gate][0], self.gates[gate][1]) # Appending the gate (gates[gate][0]) to it's application list (gates[gate][1])
+
+            if register_all_probabilities:
+                self._getProbabilities()
+
+        if not register_all_probabilities:
+            self._getProbabilities()
+
+
+
+    def showProbabilities(self, print_connection_mapping : bool) -> None:
+
+        if len(self.probabilities) == 1: # In case of only registering the final probability
+            plt.bar(range(self.num_nodes), self.probabilities[0])
+
+        else:
+            pass # TODO Find a way to plot in 3D
+
+        if print_connection_mapping:
+            print("\n\t|NODE_1> <---[CONNECTION_ID]---> |NODE_2>\n")
+            for i in range(self.num_connections):
+                print(f"|{self._connections[i]["node1"]}> <---[{i} / {bin(i)[2:].zfill(self.log_num_connections)}]---> |{self._connections[i]["node2"]}>")
+
+        plt.show()
 
 if __name__ == "__main__":
 
@@ -210,4 +237,6 @@ if __name__ == "__main__":
     #    [0, 1, 0, 0, 0]
     #]
 
-    test = discreteTimeWalk(adj_matrix, 2, True, True)
+    test = DiscreteTimeWalk(adj_matrix)
+    test.simulate(1, False)
+    test.showProbabilities(True)
