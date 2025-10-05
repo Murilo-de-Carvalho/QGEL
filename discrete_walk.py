@@ -48,6 +48,7 @@ class DiscreteTimeWalk:
         cr = ClassicalRegister(self.log_num_nodes, 'c')
 
         self.probabilities : list[list[float]] = []
+        self.steps = 0
         self.qc = QuantumCircuit(qr_connections, qr_nodes, cr)
 
 
@@ -145,7 +146,7 @@ class DiscreteTimeWalk:
         self.gates.append([shift_gate, self.__application_list_shift])
 
 
-
+    # TODO find a way to optimize this
     def __getProbabilities(self) -> None:
 
         sv = Statevector(self.qc)
@@ -175,6 +176,7 @@ class DiscreteTimeWalk:
     def simulate(self, steps : int, register_all_probabilities : bool):
 
         self.__prepareCircuit()
+        self.steps = steps
 
         for node in range(self.num_nodes):
             self.__addCoin(node)
@@ -193,14 +195,36 @@ class DiscreteTimeWalk:
             self.__getProbabilities()
 
 
-
+    # TODO(?) make this prettier
     def plotProbabilities(self, print_connection_mapping : bool) -> None:
 
         if len(self.probabilities) == 1: # In case of only registering the final probability
             plt.bar(range(self.num_nodes), self.probabilities[0])
 
-        else:
-            pass # TODO Find a way to plot in 3D
+        else:            
+            x = []
+            y = []
+            z = [0 for i in range(self.num_nodes * self.steps)]
+
+            dx = [0.5 for i in range(self.num_nodes * self.steps)]
+            dy = [0.5 for i in range(self.num_nodes * self.steps)]
+            dz = []
+
+            fig, ax = plt.subplots(subplot_kw={"projection" : "3d"})
+            for i in range(self.steps):
+                x += [j - 0.25 for j in range(self.num_nodes)]
+                y += [i + 0.75 for k in range(self.num_nodes)]
+                dz += self.probabilities[i]
+
+            ax.set_xlabel("nodes")
+            ax.set_xticks(list(range(self.num_nodes)))
+
+            ax.set_ylabel("steps")
+            ax.set_yticks(list(range(1, self.steps + 1)))
+
+            ax.set_zlabel("probability")
+
+            ax.bar3d(x, y, z, dx, dy, dz, shade=True)
 
         if print_connection_mapping:
             print("\n\t|NODE_1> <---[CONNECTION_ID]---> |NODE_2>\n")
@@ -238,5 +262,5 @@ if __name__ == "__main__":
     #]
 
     test = DiscreteTimeWalk(adj_matrix)
-    test.simulate(1, False)
+    test.simulate(8, True)
     test.plotProbabilities(True)
