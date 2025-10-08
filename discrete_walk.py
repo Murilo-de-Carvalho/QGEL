@@ -2,8 +2,14 @@ from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit.circuit.library.standard_gates import XGate
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
+
+import networkx as nx
 
 from qiskit.quantum_info import Statevector
+
+# NETWORKX
 
 class DiscreteTimeWalk:
 
@@ -201,7 +207,7 @@ class DiscreteTimeWalk:
         if len(self.probabilities) == 1: # In case of only registering the final probability
             plt.bar(range(self.num_nodes), self.probabilities[0])
 
-        else:            
+        else:
             x = []
             y = []
             z = [0 for i in range(self.num_nodes * self.steps)]
@@ -224,7 +230,11 @@ class DiscreteTimeWalk:
 
             ax.set_zlabel("probability")
 
-            ax.bar3d(x, y, z, dx, dy, dz, shade=True)
+            cmap = cm.inferno
+            norm = Normalize(vmin=min(dz), vmax=max(dz))
+            colors = cmap(norm(dz))
+
+            ax.bar3d(x, y, z, dx, dy, dz, shade=True, color=colors, zsort='max')
 
         if print_connection_mapping:
             print("\n\t|NODE_1> <---[CONNECTION_ID]---> |NODE_2>\n")
@@ -234,6 +244,13 @@ class DiscreteTimeWalk:
         plt.show()
 
 if __name__ == "__main__":
+
+    #a = nx.binomial_graph(8, 0.25, 4)
+    #b = nx.adjacency_matrix(a)
+    #c = b.toarray()
+    #nx.draw(a)
+    #plt.plot()
+    #print(c)
 
     adj_matrix = [
     [0, 0, 1, 0, 0, 0, 0, 1],
@@ -262,5 +279,5 @@ if __name__ == "__main__":
     #]
 
     test = DiscreteTimeWalk(adj_matrix)
-    test.simulate(8, True)
+    test.simulate(2, True)
     test.plotProbabilities(True)
