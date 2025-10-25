@@ -1,6 +1,6 @@
 [x] Plot probability after multiple steps
 
-[ ] Inplement adjustable state preparation
+[x] Implement adjustable state preparation
 
 [ ] Implement bipartite graph collaborative filtering
 

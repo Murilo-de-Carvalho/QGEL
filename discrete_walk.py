@@ -87,6 +87,27 @@ class DiscreteTimeWalk:
         self.qc.prepare_state(amplitudes)
 
 
+    # Basically the same function but without a for loop
+    def __prepareCircuitFromStartingNode(self, node : int) -> None:
+
+        amplitudes = []
+
+        num_possibilities = 2 ** (self.total_num_qubits)
+
+        for i in range(num_possibilities):
+            amplitudes.append(0)
+        
+        inverse_of_sqrt_degree = 1/np.sqrt(self.__nodes[node]["degree"])
+
+        for connection in self.__nodes[node]["connections"]:
+                binary_node = bin(node)[2:].zfill(self.log_num_nodes)
+                binary_connection = bin(connection)[2:].zfill(self.log_num_connections)
+                state = binary_node + binary_connection
+                amplitudes[int(state, 2)] = inverse_of_sqrt_degree
+
+        self.qc.prepare_state(amplitudes)
+
+
 
     def __getAmplitudeOfNode(self, node : int) -> list[float]:
 
@@ -179,9 +200,25 @@ class DiscreteTimeWalk:
 
 
 
-    def simulate(self, steps : int, register_all_probabilities : bool):
+    def simulate(self, steps : int, register_all_probabilities : bool, starting_node : int = -1, state_prep_list : list[float] = []):
 
-        self.__prepareCircuit()
+        if state_prep_list != [] and starting_node != -1:
+            raise ValueError("starting_node and state_prep_list are mutually exclusive, please choose one")
+
+        # Decided to simply ignore negative numbers, might change it in the future
+        elif starting_node >= 0:
+            if starting_node > self.num_nodes-1:
+                raise ValueError(f"starting_node must be between 0 and {self.num_nodes-1}")
+            self.__prepareCircuitFromStartingNode(starting_node)
+
+        elif state_prep_list != []:
+            if len(state_prep_list) != 2 ** (self.total_num_qubits):
+                raise ValueError(f"state_prep_list must have {2 ** (self.total_num_qubits)} elements, one for each possible binary state")
+            self.qc.prepare_state(state_prep_list)
+
+        else:
+            self.__prepareCircuit()
+
         self.steps = steps
 
         for node in range(self.num_nodes):
@@ -279,5 +316,5 @@ if __name__ == "__main__":
     #]
 
     test = DiscreteTimeWalk(adj_matrix)
-    test.simulate(2, True)
+    test.simulate(2, True, 0)
     test.plotProbabilities(True)
