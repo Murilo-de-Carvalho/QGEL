@@ -4,7 +4,7 @@
 
 [ ] Implement bipartite graph collaborative filtering
 
-[ ] Make the input parameter compatible with a networkx graph
+[x] Make the input parameter compatible with a networkx graph
 
 [ ] Define some common graphs for testing and analysis
 

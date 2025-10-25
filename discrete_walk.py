@@ -9,14 +9,19 @@ import networkx as nx
 
 from qiskit.quantum_info import Statevector
 
-# NETWORKX
-
 class DiscreteTimeWalk:
 
-    def __init__(self, adj_matrix : list[list[int]]):
+    def __init__(self, graph : list[list[int]] | nx.Graph):
 
-        self.adj_matrix = adj_matrix
-        self.num_nodes = len(adj_matrix)
+        if type(graph) == nx.Graph:
+            self.networkx_graph = graph
+            graph = nx.adjacency_matrix(graph).toarray()
+
+        else:
+            self.networkx_graph = nx.from_numpy_array(np.array(graph))
+
+        self.adj_matrix = graph
+        self.num_nodes = len(self.adj_matrix)
         self.__nodes = {}
         self.__connections : dict[str, int] = {}
         self.num_connections = 0
@@ -26,7 +31,7 @@ class DiscreteTimeWalk:
 
         for i in range(self.num_nodes):
             for j in range(i, self.num_nodes):
-                if (adj_matrix[i][j]):
+                if (self.adj_matrix[i][j]):
                     self.__connections[self.num_connections] = {"node1": i, "node2": j}
                     self.__nodes[i]["degree"] += 1
                     self.__nodes[i]["connections"].append(self.num_connections)
@@ -282,13 +287,6 @@ class DiscreteTimeWalk:
 
 if __name__ == "__main__":
 
-    #a = nx.binomial_graph(8, 0.25, 4)
-    #b = nx.adjacency_matrix(a)
-    #c = b.toarray()
-    #nx.draw(a)
-    #plt.plot()
-    #print(c)
-
     adj_matrix = [
     [0, 0, 1, 0, 0, 0, 0, 1],
     [0, 0, 0, 0, 1, 0, 0, 0],
@@ -316,5 +314,5 @@ if __name__ == "__main__":
     #]
 
     test = DiscreteTimeWalk(adj_matrix)
-    test.simulate(2, True, 0)
+    test.simulate(1, True)
     test.plotProbabilities(True)
