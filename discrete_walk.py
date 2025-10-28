@@ -285,6 +285,13 @@ class DiscreteTimeWalk:
 
         plt.show()
 
+
+    # Really just a wrapper for the nx draw function, but it's good for simplicity and to maintain the lib self contained
+    def draw(self, show_labels : bool = True):
+
+        nx.draw(self.networkx_graph, with_labels=show_labels)
+        plt.show()
+
 if __name__ == "__main__":
 
     adj_matrix = [
@@ -316,3 +323,4 @@ if __name__ == "__main__":
     test = DiscreteTimeWalk(adj_matrix)
     test.simulate(1, True)
     test.plotProbabilities(True)
+    test.draw()
