@@ -2,7 +2,7 @@
 
 [x] Implement adjustable state preparation
 
-[ ] Implement bipartite graph collaborative filtering
+[x] Implement bipartite graph collaborative filtering
 
 [x] Make the input parameter compatible with a networkx graph
 

@@ -205,7 +205,7 @@ class DiscreteTimeWalk:
 
 
 
-    def simulate(self, steps : int, register_all_probabilities : bool, starting_node : int = -1, state_prep_list : list[float] = []):
+    def simulate(self, steps : int, register_all_probabilities : bool, starting_node : int = -1, state_prep_list : list[float] = []) -> None:
 
         if state_prep_list != [] and starting_node != -1:
             raise ValueError("starting_node and state_prep_list are mutually exclusive, please choose one")
@@ -287,23 +287,32 @@ class DiscreteTimeWalk:
 
 
     # Really just a wrapper for the nx draw function, but it's good for simplicity and to maintain the lib self contained
-    def draw(self, show_labels : bool = True):
+    def draw(self, show_labels : bool = True) -> None:
 
         nx.draw(self.networkx_graph, with_labels=show_labels)
         plt.show()
 
+
+class BiCollabFiltering(DiscreteTimeWalk):
+    def simulate(self, steps, register_all_probabilities, starting_node = -1, state_prep_list = []) -> None:
+        if (steps == 0):
+            raise ValueError("steps must be a positive integer")
+
+        super().simulate(2 * steps + 1, register_all_probabilities, starting_node, state_prep_list)
+
+    
 if __name__ == "__main__":
 
-    adj_matrix = [
-    [0, 0, 1, 0, 0, 0, 0, 1],
-    [0, 0, 0, 0, 1, 0, 0, 0],
-    [1, 0, 0, 0, 1, 0, 1, 0],
-    [0, 0, 0, 0, 1, 1, 0, 0],
-    [0, 1, 1, 1, 0, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 0, 1],
-    [1, 0, 0, 0, 0, 0, 1, 0]
-    ]
+    #adj_matrix = [
+    #[0, 0, 1, 0, 0, 0, 0, 1],
+    #[0, 0, 0, 0, 1, 0, 0, 0],
+    #[1, 0, 0, 0, 1, 0, 1, 0],
+    #[0, 0, 0, 0, 1, 1, 0, 0],
+    #[0, 1, 1, 1, 0, 0, 0, 0],
+    #[0, 0, 0, 1, 0, 0, 0, 0],
+    #[0, 0, 1, 0, 0, 0, 0, 1],
+    #[1, 0, 0, 0, 0, 0, 1, 0]
+    #]
 
     #adj_matrix = [
     #    [0, 1, 1, 1],
@@ -320,7 +329,16 @@ if __name__ == "__main__":
     #    [0, 1, 0, 0, 0]
     #]
 
-    test = DiscreteTimeWalk(adj_matrix)
-    test.simulate(1, True)
+    bipart = [
+    [0, 0, 0, 1, 1, 1],
+    [0, 0, 0, 0, 1, 1],
+    [0, 0, 0, 1, 0, 1],
+    [1, 0, 1, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0],
+    [1, 1, 1, 0, 0, 0]
+    ]
+
+    test = BiCollabFiltering(bipart)
+    test.simulate(2, False, 0)
     test.plotProbabilities(True)
     test.draw()
