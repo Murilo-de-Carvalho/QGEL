@@ -1,44 +1,56 @@
-from discrete_walk import * #temporary...?
+from discrete_walk import *
 
 class LinkPrediction():
 
     def __init__(self, graph : list[list[int]] | nx.Graph):
-        self.dtw_simulation = DiscreteQuantumWalk(graph)
+        self.dtw_simulation = DTQW(graph)
         self.scores : list[float] = []
-
+    
     def predict(self, steps : int, register_all_scores : bool, starting_node : int) -> None:
 
-        if steps == 0:
+        if steps < 1:
             raise ValueError("steps must be a positive integer")
+
+        if steps < 2:
+            raise ValueError("having less than 2 steps produces useless data as all the resulting nodes are already connected to the initial one")
 
         if starting_node > self.dtw_simulation.num_nodes-1:
             raise ValueError(f"starting_node must be between 0 and {self.dtw_simulation.num_nodes-1}")
 
         self.dtw_simulation.reset()
+
+        if register_all_scores:
+            register_probabilities = "all"
+        else:
+            register_probabilities = "last"
+
         self.dtw_simulation.simulate(
             steps=steps,
-            register_probabilities=True,
-            register_all_probabilities=register_all_scores,
+            register_probabilities=register_probabilities,
             starting_node=starting_node
         )
 
-        adjacent_nodes = self.dtw_simulation._DiscreteQuantumWalk__nodes[starting_node].connected_nodes
-
-        starting_node_degree = self.dtw_simulation._DiscreteQuantumWalk__nodes[starting_node].degree
+        adjacent_nodes = self.dtw_simulation._nodes[starting_node].connected_nodes
+        starting_node_degree = self.dtw_simulation._nodes[starting_node].degree
 
         scores = [0.0 for _ in self.dtw_simulation.probabilities[0]]
 
-        for prob_list in self.dtw_simulation.probabilities:
+        if register_all_scores == True:
+            useful_data = self.dtw_simulation.probabilities[1:]
+        else:
+            useful_data = self.dtw_simulation.probabilities
+
+        for prob_list in useful_data:
 
             for node in range(len(prob_list)):
                 if node in adjacent_nodes or node == starting_node:
                     continue
 
                 # probability of node j * (degree of i + degree of j)
-                scores[node] += prob_list[node] * (starting_node_degree + self.dtw_simulation._DiscreteQuantumWalk__nodes[node].degree)
+                scores[node] += prob_list[node] * (starting_node_degree + self.dtw_simulation._nodes[node].degree)
 
         for i in range(len(scores)):
-            scores[i] /= steps
+            scores[i] /= steps-1 # ignoring first step
 
         self.scores = scores
 
@@ -64,13 +76,9 @@ if __name__ == "__main__":
         [0, 0, 1, 0, 0, 0, 0, 1],
         [1, 0, 0, 0, 0, 0, 1, 0]
     ]
-    # função que dá a probabilidade de estar no node x ao longo do tempo
+
     lp = LinkPrediction(study_matrix)
-    lp.predict(steps=2, register_all_scores=True, starting_node=5)
+    #lp.predict(steps=2, register_all_scores=True, starting_node=5)
+    #lp.plotScores()
+    lp.predict(steps=3, register_all_scores=True, starting_node=5)
     lp.plotScores()
-    lp.dtw_simulation.draw()
-    #a = DiscreteQuantumWalk(study_matrix)
-    #a.reset()
-    #a.simulate(3, True, False, 5)
-    #a.plotProbabilities(False)
-    #print(a.probabilities)
