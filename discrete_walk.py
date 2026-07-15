@@ -53,7 +53,7 @@ class DTQW:
         self._adjacency_list = graph
         self.__countNumOfNodes()
         for key in graph.keys():
-            self._networkx_graph.add_edges_from(list((key, graph[key]["neighbors"][j], {"weight": graph[key]["weights"][j]}) for j in range(len(graph[key]["weights"]))))  
+            self._networkx_graph.add_edges_from(list((key, graph[key]["neighbors"][j], {"weight": graph[key]["weights"][j]}) for j in range(len(graph[key]["weights"]))))
 
     def __handleNxGraph(self, graph) -> None:
         self._networkx_graph = graph
@@ -433,8 +433,8 @@ if __name__ == "__main__":
     G = nx.gnp_random_graph(100, 0.3)
     print("Nodes:", G.number_of_nodes(), "Edges:", G.number_of_edges())
 
-    example = DTQW(graph=G)
+    example = DTQW(graph=simple_4x4)
     example.simulate(steps=1, register_probabilities="none")
     #example.plotProbabilities()
-    #example.draw()
+    example.draw()
     #print(example._adjacency_list)
