@@ -43,10 +43,7 @@ for i in range(20):
     params.add(f"a{i}", value=1, min=0)
 params.add("steps", value=1, min=1)
 
-prob = [0 for _ in range(5)]
-prob[3] = 1/3
-prob[1] = 1/3
-prob[2] = 1/3
+prob = [0.29198528456392614, 0.1154059069301136, 0.024522486069846004, 0.22104755332176243, 0.34703876911435183]
 
 def func(params, graph, data):
     i = 0
@@ -80,6 +77,10 @@ for node in grapo.values():
 a = DTQW(grapo)
 a.simulate(int(fit_result.params["steps"].value), "last")
 a.plotProbabilities()
+err = [abs(a._probabilities[0][i] - prob[i]) for i in range(len(prob))]
+print(err)
+
+
 """ G = nx.Graph()
 
 G.add_edge(0, 1, weight=0.6)

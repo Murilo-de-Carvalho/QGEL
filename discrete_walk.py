@@ -356,6 +356,26 @@ class DTQW:
         self._first_node_qubits = self._all_qubits[:self._num_qubits_nodes]
         self._second_node_qubits = self._all_qubits[self._num_qubits_nodes:]
 
+    def getDegree(self, node : int) -> dict[str, int]:
+
+        if node > self._num_nodes-1 or node < 0:
+            raise ValueError(f"node must be between 0 and {self._num_nodes-1}")
+
+        deg = {}
+        deg["in"] = 0
+        deg["out"] = 0
+
+        for n in self._adjacency_list.keys():
+            if n == node:
+                for weight in self._adjacency_list[n]["weights"]:
+                    deg["out"] += weight
+
+            if node in self._adjacency_list[n]["neighbors"]:
+                index = self._adjacency_list[n]["neighbors"].index(node)
+                deg["in"] += self._adjacency_list[n]["weights"][index]
+
+        return deg
+
 if __name__ == "__main__":
 
     study_matrix = [
@@ -423,6 +443,13 @@ if __name__ == "__main__":
         [0, 1, 1, 0]
     ]
 
+    simple_4x4 = [
+        [0, 1, 1, 1],
+        [1, 0, 1, 0],
+        [1, 1, 0, 0],
+        [1, 0, 0, 0]
+    ]
+
     simple_dict = {
         0: [1, 2, 3],
         1 : [0, 2, 3],
@@ -430,11 +457,22 @@ if __name__ == "__main__":
         3: [0, 1]
     }
 
-    G = nx.gnp_random_graph(100, 0.3)
-    print("Nodes:", G.number_of_nodes(), "Edges:", G.number_of_edges())
+    test = [
+        [0, 1, 0, 0, 1],
+        [1, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1],
+        [0, 0, 0, 1, 1],
+        [1, 0, 1, 1, 0]
+    ]
 
-    example = DTQW(graph=simple_4x4)
-    example.simulate(steps=1, register_probabilities="none")
-    #example.plotProbabilities()
+    #G = nx.gnp_random_graph(100, 0.3)
+    #print("Nodes:", G.number_of_nodes(), "Edges:", G.number_of_edges())
+
+    example = DTQW(graph=test)
+    example.simulate(steps=10, register_probabilities="last")
+    example.plotProbabilities()
     example.draw()
+    print(example._probabilities[0])
+
     #print(example._adjacency_list)
+    #print(example.getDegree(1))
