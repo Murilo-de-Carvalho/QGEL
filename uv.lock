@@ -921,6 +921,7 @@ dependencies = [
     { name = "pdflatex" },
     { name = "pylatexenc" },
     { name = "pyqt6" },
+    { name = "scipy" },
 ]
 
 [package.metadata]
@@ -934,6 +935,7 @@ requires-dist = [
     { name = "pdflatex", specifier = ">=0.1.3" },
     { name = "pylatexenc", specifier = ">=2.10" },
     { name = "pyqt6", specifier = ">=6.10.2" },
+    { name = "scipy", specifier = ">=1.17.1" },
 ]
 
 [[package]]

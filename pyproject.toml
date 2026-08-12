@@ -14,4 +14,5 @@ dependencies = [
     "pdflatex>=0.1.3",
     "pylatexenc>=2.10",
     "pyqt6>=6.10.2",
+    "scipy>=1.17.1",
 ]

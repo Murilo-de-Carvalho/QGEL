@@ -11,6 +11,8 @@ from lmfit import Parameters, minimize, report_fit
 
 from discrete_walk import DTQW
 
+import copy
+
 grapo = {
     0: {
         "neighbors": [1, 2, 3, 4],
@@ -38,95 +40,61 @@ grapo = {
     }
 }
 
-params = Parameters()
-for i in range(20):
-    params.add(f"a{i}", value=1, min=0)
-params.add("steps", value=1, min=1)
+class Solver:
 
-prob = [0.29198528456392614, 0.1154059069301136, 0.024522486069846004, 0.22104755332176243, 0.34703876911435183]
+    def __init__(self, graph : dict):
 
-def func(params, graph, data):
-    i = 0
-    for node in graph.values():
-        for neighbor in range(len(node["neighbors"])):
-            node["weights"][neighbor] = params[f"a{i}"].value
-            i += 1
+        self.original_graph = graph
+        self.original_params = Parameters()
 
-    walk = DTQW(graph)
-    walk.simulate(int(params["steps"].value), "last")
+        for i in range(20):
+            self.original_params.add(f"a{i}", value=1, min=0)
+        self.original_params.add("steps", value=0, min=0)
 
-    copy = walk._probabilities[0].copy()
-    copy += [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    new_data = data.copy()
-    new_data += [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    def func(self, params, graph, data):
 
-    result = array(new_data) - array(copy)
+        i = 0
+        for node in graph.values():
+            for neighbor in range(len(node["neighbors"])):
+                node["weights"][neighbor] = params[f"a{i}"].value
+                i += 1
 
-    return result.flatten()
+        walk = DTQW(graph)
+        walk.simulate(int(params["steps"].value), "last")
 
-fit_result = minimize(func, params, args=(grapo, prob))
+        appendix = [0 for _ in range( len(params) - len(graph) + 1)]
 
-report_fit(fit_result)
+        copy = walk._probabilities[0].copy()
+        copy += appendix
 
-i = 0
-for node in grapo.values():
-    for neighbor in range(len(node["neighbors"])):
-        node["weights"][neighbor] = fit_result.params[f"a{i}"].value
-        i += 1
+        new_data = data.copy()
+        new_data += appendix
 
-a = DTQW(grapo)
-a.simulate(int(fit_result.params["steps"].value), "last")
-a.plotProbabilities()
-err = [abs(a._probabilities[0][i] - prob[i]) for i in range(len(prob))]
-print(err)
+        result = array(new_data) - array(copy)
 
+        return result.flatten()
 
-""" G = nx.Graph()
+    def run(self, steps : int, prob_list : list):
 
-G.add_edge(0, 1, weight=0.6)
-G.add_edge(0, 2, weight=0.2)
-G.add_edge(2, 3, weight=0.1)
-G.add_edge(2, 4, weight=0.7)
-G.add_edge(2, 5, weight=0.9)
-G.add_edge(0, 3, weight=0.3)
-data = G.adjacency()
-for node, neighbors in G.adjacency():
-    print(f"Node {node} is connected to {list(neighbors.keys())}") """
+        fit_params = copy.deepcopy(self.original_params)
+        fit_params["steps"].value = steps
+        fit_params["steps"].min = steps
 
-""" dod = {
+        fit_graph = copy.deepcopy(self.original_graph)
 
-    0: {
-        "neighbors" : [1, 2, 3, 4],
-        "weights" : [1, 5, 3, 2]
-    },
+        fit_result = minimize(self.func, fit_params, args=(fit_graph, prob_list))
+        report_fit(fit_result)
 
-    1: {
-        "neighbors" : [0, 2, 4],
-        "weights" : [6, 3, 9]
-    },
+        walk = DTQW(fit_graph)
+        walk.simulate(steps, "last")
+        walk.plotProbabilities()
 
-}
+        err = [abs(walk._probabilities[0][i] - prob_list[i]) for i in range(len(prob_list))]
+        print(err)
 
-dod = {
+prob = [0.2793960352570557, 0.10794465769579394, 0.05543637917943149, 0.25872634630269153, 0.29849658156502745]
 
-    0: {
-        1: {"weight": 1},
-        2: {"weight": 5},
-        3: {"weight": 3},
-        4: {"weight": 2}
-    },
-
-    1: {
-        0: {"weight": 6},
-        2: {"weight": 3},
-        4: {"weight": 9}
-    }
-
-}
-
-a = {0: [1, 2], 1: [0, 3], 2: [0], 3: [1]}
-
-G = nx.from_dict_of_dicts(dod)
-for node, neighbors in G.adjacency():
-    for value in neighbors.values():
-        print(value["weight"]) """
+s = Solver(grapo)
+s.run(10, prob)
+#print(s.original_graph)
+#print(s.fit_graph)

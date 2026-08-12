@@ -461,15 +461,21 @@ if __name__ == "__main__":
         [0, 1, 0, 0, 1],
         [1, 0, 0, 0, 0],
         [0, 0, 0, 1, 1],
-        [0, 0, 0, 1, 1],
+        [0, 1, 0, 0, 1],
         [1, 0, 1, 1, 0]
     ]
+
+    """continuous_adj = [
+        [0, 1, 0],
+        [1, 0, 1],
+        [0, 1, 0]
+    ] """
 
     #G = nx.gnp_random_graph(100, 0.3)
     #print("Nodes:", G.number_of_nodes(), "Edges:", G.number_of_edges())
 
     example = DTQW(graph=test)
-    example.simulate(steps=10, register_probabilities="last")
+    example.simulate(steps=1, register_probabilities="last")
     example.plotProbabilities()
     example.draw()
     print(example._probabilities[0])
