@@ -1,6 +1,6 @@
 from ket import *
 from ket.qulib.prepare import state as ket_state_prep
-from numpy import array, ceil, floor, log2, sqrt, float64
+from numpy import array, ceil, floor, log2, sqrt, float64, ndarray
 from numpy.linalg import norm
 import networkx as nx
 
@@ -22,6 +22,9 @@ class DTQW:
     def __isListOfLists(self, var) -> bool:
         return ( isinstance(var, list) and isinstance(var[0], list) )
 
+    def __isArrayOfArrays(self, var) -> bool:
+        return (isinstance(var, ndarray) and isinstance(var[0], ndarray))
+
     def __isDictOfLists(self, var) -> bool:
         return ( isinstance(var, dict) and isinstance(next(iter(var.values()), None), list) )
 
@@ -30,6 +33,18 @@ class DTQW:
 
     def __handleListOfLists(self, graph) -> None:
         self._networkx_graph = nx.from_numpy_array(array(graph))
+        self._num_nodes = len(graph)
+        for i in range(self._num_nodes):
+            self._adjacency_list[i] = {}
+            self._adjacency_list[i]["neighbors"] = []
+            self._adjacency_list[i]["weights"] = []
+            for j in range(self._num_nodes):
+                if graph[i][j]:
+                    self._adjacency_list[i]["neighbors"].append(j)
+                    self._adjacency_list[i]["weights"].append(graph[i][j])
+
+    def __handleArrayOfArrays(self, graph) -> None:
+        self._networkx_graph = nx.from_numpy_array(graph)
         self._num_nodes = len(graph)
         for i in range(self._num_nodes):
             self._adjacency_list[i] = {}
@@ -78,6 +93,10 @@ class DTQW:
 
         if self.__isListOfLists(graph):
             self.__handleListOfLists(graph)
+
+        # ndarrays
+        elif self.__isArrayOfArrays(graph):
+            self.__handleArrayOfArrays(graph)
 
         elif self.__isDictOfLists(graph):
             self.__handleDictOfLists(graph)
@@ -474,10 +493,10 @@ if __name__ == "__main__":
     #G = nx.gnp_random_graph(100, 0.3)
     #print("Nodes:", G.number_of_nodes(), "Edges:", G.number_of_edges())
 
-    example = DTQW(graph=test)
+    example = DTQW(graph=array(study_matrix))
     example.simulate(steps=1, register_probabilities="last")
     example.plotProbabilities()
-    example.draw()
+    #example.draw()
     print(example._probabilities[0])
 
     #print(example._adjacency_list)

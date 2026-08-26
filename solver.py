@@ -1,63 +1,41 @@
 from ket import *
 from ket.qulib.prepare import state as ket_state_prep
 from numpy import array, ceil, floor, log2, sqrt, float64
-import networkx as nx
-
+from networkx import Graph
 from matplotlib import use as mplUse
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 from lmfit import Parameters, minimize, report_fit
+from statistics import mean
+
+import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import scipy.linalg
+import copy
 
 from discrete_walk import DTQW
 
-import copy
-
-grapo = {
-    0: {
-        "neighbors": [1, 2, 3, 4],
-        "weights": [1, 1, 1, 1]
-    },
-
-    1: {
-        "neighbors": [0, 2, 3, 4],
-        "weights": [1, 1, 1, 1]
-    },
-
-    2: {
-        "neighbors": [0, 1, 3, 4],
-        "weights": [1, 1, 1, 1]
-    },
-
-    3: {
-        "neighbors": [0, 1, 2, 4],
-        "weights": [1, 1, 1, 1]
-    },
-
-    4: {
-        "neighbors": [0, 1, 2, 3],
-        "weights": [1, 1, 1, 1]
-    }
-}
-
 class Solver:
 
-    def __init__(self, graph : dict):
+    def __createGraph(self, prob_list : list) -> list[list[float]]:
+        G = nx.complete_graph(len(prob_list))
+        graph = nx.adjacency_matrix(G)
+        return graph.toarray().tolist()
 
-        self.original_graph = graph
-        self.original_params = Parameters()
+    def __init__(self):
+        self.result_graph = None
+        self.ctqw_prob_list = None
+        self.is_target_set = False
 
-        for i in range(20):
-            self.original_params.add(f"a{i}", value=1, min=0)
-        self.original_params.add("steps", value=0, min=0)
+    def __fitFunc(self, params, graph, data):
 
-    def func(self, params, graph, data):
-
-        i = 0
-        for node in graph.values():
-            for neighbor in range(len(node["neighbors"])):
-                node["weights"][neighbor] = params[f"a{i}"].value
-                i += 1
+        for i in range(len(graph)):
+            for j in range(len(graph)):
+                if (i != j):
+                    graph[i][j] = params[f"w{i}{j}"].value
+                else:
+                    graph[i][j] = 0
 
         walk = DTQW(graph)
         walk.simulate(int(params["steps"].value), "last")
@@ -74,27 +52,77 @@ class Solver:
 
         return result.flatten()
 
-    def run(self, steps : int, prob_list : list):
+    def setTarget(self, CTQW_graph : Graph, steps : float, amplitude: list[complex] = None):
 
-        fit_params = copy.deepcopy(self.original_params)
-        fit_params["steps"].value = steps
-        fit_params["steps"].min = steps
+        A = nx.adjacency_matrix(CTQW_graph).toarray()
 
-        fit_graph = copy.deepcopy(self.original_graph)
+        if amplitude == None:
+            amplitude = [1/sqrt(len(A)) for _ in range(len(A))]
 
-        fit_result = minimize(self.func, fit_params, args=(fit_graph, prob_list))
-        report_fit(fit_result)
+        H = -A
+        t = steps
+        U = scipy.linalg.expm(-1j * H * t)
+        psi_0 = array(amplitude)
+        psi_t = U @ psi_0
+        self.ctqw_prob_list = np.abs(psi_t) ** 2
+        self.is_target_set = True
 
-        walk = DTQW(fit_graph)
-        walk.simulate(steps, "last")
-        walk.plotProbabilities()
+    def solve(self, steps : int, prob_list : list = None, print_err : bool = False, print_fit_info : bool = False):
 
-        err = [abs(walk._probabilities[0][i] - prob_list[i]) for i in range(len(prob_list))]
-        print(err)
+        if prob_list != None and self.is_target_set:
+            raise ValueError("Target is already defined, don't pass a prob_list")
 
-prob = [0.2793960352570557, 0.10794465769579394, 0.05543637917943149, 0.25872634630269153, 0.29849658156502745]
+        if prob_list == None:
+            if not self.is_target_set:
+                raise ValueError("Target is not set, please pass a prob_list or define a target")
+            prob_list = self.ctqw_prob_list.tolist()
 
-s = Solver(grapo)
-s.run(10, prob)
-#print(s.original_graph)
-#print(s.fit_graph)
+        fit_graph = self.__createGraph(prob_list)
+
+        fit_params = Parameters()
+        for i in range(len(fit_graph)):
+            for j in range(len(fit_graph)):
+                if (i != j):
+                    fit_params.add(f"w{i}{j}", value=fit_graph[i][j]*0.5, min=0, max=1)
+
+        fit_params.add(f"steps", value=steps, min=steps)
+
+        fit_result = minimize(self.__fitFunc, fit_params, args=(fit_graph, prob_list))
+        if (print_fit_info):
+            report_fit(fit_result)
+
+        self.walk = DTQW(fit_graph)
+        self.walk.simulate(steps, "last")
+        self.walk.plotProbabilities()
+
+        self.result_graph = fit_graph
+
+        if (print_err):
+            err = [abs(self.walk._probabilities[0][i] - prob_list[i]) for i in range(len(prob_list))]
+            print(f"Maximal Error: {max(err)}")
+            print(f"Average Error: {mean(err)}")
+            print(f"Sum of Errors: {sum(err)}")
+
+    def reset(self):
+        self.result_graph = None
+        self.ctqw_prob_list = None
+        self.is_target_set = False
+
+prob = [0.10256259, 0.01338814, 0.12367855, 0.01184509, 0.06701715, 0.00100341, 0.4620547, 0.21845037]
+
+study_matrix = {
+    0: [2, 7],
+    1: [4],
+    2: [0, 4, 6],
+    3: [4, 5],
+    4: [1, 2, 3],
+    5: [3],
+    6: [2, 7],
+    7: [0, 6]
+}
+
+G = nx.from_dict_of_lists(study_matrix)
+
+s = Solver()
+#s.setTarget(G, 2, [1, 0, 0, 0, 0, 0, 0, 0])
+s.solve(steps=1, prob_list=prob, print_err=True)
