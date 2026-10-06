@@ -1,6 +1,7 @@
 from discrete_walk import *
 
-class LinkPrediction():
+
+class LinkPrediction:
 
     def __init__(self, graph : list[list[int]] | nx.Graph):
         self.dtw_simulation = DTQW(graph)
