@@ -1,37 +1,41 @@
+from typing import Any
+
+import matplotlib.pyplot as plt
+import networkx as nx
 from ket import *
 from ket.qulib.prepare import state as ket_state_prep
-from numpy import array, ceil, floor, log2, sqrt, float64, ndarray
-from numpy.linalg import norm
-import networkx as nx
-
-from matplotlib import use as mplUse
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+from matplotlib import cm
 from matplotlib.colors import Normalize
+from networkx.classes.graph import Graph
+from numpy import array, ceil, log2, ndarray, sqrt
+from numpy.linalg import norm
+
 
 class DTQW:
 
     def __countNumOfNodes(self) -> None:
-        num = max(self._adjacency_list)
-        for value in self._adjacency_list.values():
-            temp = max(value["neighbors"])
-            if temp > num:
-                num = temp
-        self._num_nodes = num + 1 #starts at zero
 
-    def __isListOfLists(self, var) -> bool:
+        num: int = max(self._adjacency_list)
+
+        for value in self._adjacency_list.values():
+            temp: int = max(value["neighbors"])
+            num = max(num, temp)
+
+        self._num_nodes: int = num + 1 #starts at zero
+
+    def __isListOfLists(self, var: Any) -> bool:
         return ( isinstance(var, list) and isinstance(var[0], list) )
 
-    def __isArrayOfArrays(self, var) -> bool:
+    def __isArrayOfArrays(self, var: Any) -> bool:
         return (isinstance(var, ndarray) and isinstance(var[0], ndarray))
 
-    def __isDictOfLists(self, var) -> bool:
+    def __isDictOfLists(self, var: Any) -> bool:
         return ( isinstance(var, dict) and isinstance(next(iter(var.values()), None), list) )
 
-    def __isDictOfDicts(self, var) -> bool:
+    def __isDictOfDicts(self, var: Any) -> bool:
         return ( isinstance(var, dict) and isinstance(next(iter(var.values()), None), dict) )
 
-    def __handleListOfLists(self, graph) -> None:
+    def __handleListOfLists(self, graph: Any) -> None:
         self._networkx_graph = nx.from_numpy_array(array(graph))
         self._num_nodes = len(graph)
         for i in range(self._num_nodes):
@@ -55,7 +59,7 @@ class DTQW:
                     self._adjacency_list[i]["neighbors"].append(j)
                     self._adjacency_list[i]["weights"].append(graph[i][j])
 
-    def __handleDictOfLists(self, graph) -> None:
+    def __handleDictOfLists(self, graph: Any) -> None:
         self._networkx_graph = nx.from_dict_of_lists(graph)
         for key in graph.keys():
             self._adjacency_list[key] = {}
@@ -63,14 +67,14 @@ class DTQW:
             self._adjacency_list[key]["weights"] = [1 for _ in range(len(graph[key]))]
         self.__countNumOfNodes()
 
-    def __handleDictOfDicts(self, graph) -> None:
+    def __handleDictOfDicts(self, graph: Any) -> None:
         self._networkx_graph = nx.Graph()
         self._adjacency_list = graph
         self.__countNumOfNodes()
         for key in graph.keys():
             self._networkx_graph.add_edges_from(list((key, graph[key]["neighbors"][j], {"weight": graph[key]["weights"][j]}) for j in range(len(graph[key]["weights"]))))
 
-    def __handleNxGraph(self, graph) -> None:
+    def __handleNxGraph(self, graph: Any) -> None:
         self._networkx_graph = graph
         for node, neighbors in graph.adjacency():
             self._adjacency_list[node] = {}
@@ -85,11 +89,11 @@ class DTQW:
 
         self.__countNumOfNodes()
 
-    def __init__(self, graph : list[list[int]] | dict[int, list[int]] | dict[int, dict[str, float]] | nx.Graph):
+    def __init__(self, graph : list[list[int]] | dict[int, list[int]] | dict[int, dict[str, list[int] | list[float]]] | Graph):
 
-        self._adjacency_list = {}
+        self._adjacency_list: dict[int, dict[str, list[int] | list[float]]] = {}
         self._num_nodes : int = 0
-        self._networkx_graph : nx.Graph = None
+        self._networkx_graph : nx.Graph
 
         if self.__isListOfLists(graph):
             self.__handleListOfLists(graph)
@@ -124,7 +128,8 @@ class DTQW:
     def __getAmplitudeOfNode(self, node : int) -> list[complex]:
         magnitude = norm(self._adjacency_list[node]["weights"])
         normalized_weights = self._adjacency_list[node]["weights"].copy()
-        normalized_weights /= magnitude
+        if magnitude != 0:
+            normalized_weights /= magnitude
         amplitude = [0 for _ in range(2 ** self._num_qubits_nodes)]
         for i in range(len(normalized_weights)):
             amplitude[self._adjacency_list[node]["neighbors"][i]] = normalized_weights[i]
@@ -144,6 +149,7 @@ class DTQW:
         for node in self._adjacency_list.keys():
 
             amps = self.__getAmplitudeOfNode(node)
+            amps = [1/sqrt(len(self._adjacency_list[node]["weights"])) if a > 0 else 0 for a in amps]
             state = self.__getState(node)
 
             with control(self._first_node_qubits, state):
@@ -360,10 +366,12 @@ class DTQW:
                 print(f"|{self._connections[i].node_1}> <---[{i} / {bin(i)[2:].zfill(self.num_qubits_connections)}]---> |{self._connections[i].node_2}>") """
 
         plt.show()
+        plt.clf()
 
     def draw(self, show_labels : bool = True) -> None:
         nx.draw(self._networkx_graph, with_labels=show_labels, node_size=400, font_size=13, node_color="black", font_color="white")
         plt.show()
+        plt.clf()
 
     def reset(self) -> None:
 
@@ -408,7 +416,7 @@ if __name__ == "__main__":
         [1, 0, 0, 0, 0, 0, 1, 0]
     ]
 
-    simple_4x41 = [
+    simple_4x41: list[list[int]] = [
         [0, 1, 1, 1],
         [1, 0, 1, 0],
         [1, 1, 0, 0],
@@ -493,11 +501,30 @@ if __name__ == "__main__":
     #G = nx.gnp_random_graph(100, 0.3)
     #print("Nodes:", G.number_of_nodes(), "Edges:", G.number_of_edges())
 
-    example = DTQW(graph=array(study_matrix))
+    study_matrix = {
+        0: [2, 7],
+        1: [4],
+        2: [0, 4, 6],
+        3: [4, 5],
+        4: [1, 2, 3],
+        5: [3],
+        6: [2, 7],
+        7: [0, 6]
+    }
+
+    dicts_dicts: dict[int, dict[str, list[int] | list[float]]] = {
+        0: {
+            "neighbors": [1,2,3],
+            "weights": [1.0,2.0,3.0]
+        }
+    }
+
+    G: Graph = nx.from_dict_of_lists(study_matrix)
+    example = DTQW(G)
     example.simulate(steps=1, register_probabilities="last")
     example.plotProbabilities()
     #example.draw()
-    print(example._probabilities[0])
+    #print(example._probabilities[0])
 
     #print(example._adjacency_list)
     #print(example.getDegree(1))
