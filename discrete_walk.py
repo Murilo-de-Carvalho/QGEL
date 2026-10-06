@@ -18,7 +18,7 @@ class DTQW:
         num: int = max(self._adjacency_list)
 
         for value in self._adjacency_list.values():
-            temp: int = max(value["neighbors"])
+            temp: int = int(max(value["neighbors"]))
             num = max(num, temp)
 
         self._num_nodes: int = num + 1 #starts at zero
@@ -36,52 +36,74 @@ class DTQW:
         return ( isinstance(var, dict) and isinstance(next(iter(var.values()), None), dict) )
 
     def __handleListOfLists(self, graph: Any) -> None:
-        self._networkx_graph = nx.from_numpy_array(array(graph))
+
+        self._networkx_graph: Graph = nx.from_numpy_array(array(graph))
         self._num_nodes = len(graph)
+
         for i in range(self._num_nodes):
+
             self._adjacency_list[i] = {}
             self._adjacency_list[i]["neighbors"] = []
             self._adjacency_list[i]["weights"] = []
+
             for j in range(self._num_nodes):
+
                 if graph[i][j]:
                     self._adjacency_list[i]["neighbors"].append(j)
                     self._adjacency_list[i]["weights"].append(graph[i][j])
 
-    def __handleArrayOfArrays(self, graph) -> None:
-        self._networkx_graph = nx.from_numpy_array(graph)
+    def __handleArrayOfArrays(self, graph: Any) -> None:
+
+        self._networkx_graph: Graph = nx.from_numpy_array(graph)
         self._num_nodes = len(graph)
+
         for i in range(self._num_nodes):
+
             self._adjacency_list[i] = {}
             self._adjacency_list[i]["neighbors"] = []
             self._adjacency_list[i]["weights"] = []
+
             for j in range(self._num_nodes):
+
                 if graph[i][j]:
                     self._adjacency_list[i]["neighbors"].append(j)
                     self._adjacency_list[i]["weights"].append(graph[i][j])
 
     def __handleDictOfLists(self, graph: Any) -> None:
-        self._networkx_graph = nx.from_dict_of_lists(graph)
-        for key in graph.keys():
+
+        self._networkx_graph: Graph = nx.from_dict_of_lists(graph)
+
+        for key in graph:
+
             self._adjacency_list[key] = {}
             self._adjacency_list[key]["neighbors"] = graph[key]
             self._adjacency_list[key]["weights"] = [1 for _ in range(len(graph[key]))]
+
         self.__countNumOfNodes()
 
     def __handleDictOfDicts(self, graph: Any) -> None:
+
         self._networkx_graph = nx.Graph()
         self._adjacency_list = graph
         self.__countNumOfNodes()
-        for key in graph.keys():
-            self._networkx_graph.add_edges_from(list((key, graph[key]["neighbors"][j], {"weight": graph[key]["weights"][j]}) for j in range(len(graph[key]["weights"]))))
+
+        for key in graph:
+            edges = [(key, graph[key]["neighbors"][j], {"weight": graph[key]["weights"][j]}) for j in range(len(graph[key]["weights"]))]
+            self._networkx_graph.add_edges_from(edges)
 
     def __handleNxGraph(self, graph: Any) -> None:
+
         self._networkx_graph = graph
+
         for node, neighbors in graph.adjacency():
+
             self._adjacency_list[node] = {}
             self._adjacency_list[node]["neighbors"] = list(neighbors.keys())
 
             self._adjacency_list[node]["weights"] = []
+
             for value in neighbors.values():
+
                 if value == {}:
                     self._adjacency_list[node]["weights"].append(1)
                 else:
@@ -89,9 +111,9 @@ class DTQW:
 
         self.__countNumOfNodes()
 
-    def __init__(self, graph : list[list[int]] | dict[int, list[int]] | dict[int, dict[str, list[int] | list[float]]] | Graph):
+    def __init__(self, graph : list[list[int]] | dict[int, list[int]] | dict[int, dict[str, list[float]]] | Graph):
 
-        self._adjacency_list: dict[int, dict[str, list[int] | list[float]]] = {}
+        self._adjacency_list: dict[int, dict[str, list[float]]] = {}
         self._num_nodes : int = 0
         self._networkx_graph : nx.Graph
 
@@ -115,24 +137,28 @@ class DTQW:
             raise TypeError("Type of graph not supported")
 
         self._num_qubits_nodes = int(ceil(log2(self._num_nodes)))
-        self._num_qubits_total = 2 * self._num_qubits_nodes
+        self._num_qubits_total: int = 2 * self._num_qubits_nodes
 
         self._proc = Process()
-        self._all_qubits = self._proc.alloc(self._num_qubits_total)
-        self._first_node_qubits = self._all_qubits[:self._num_qubits_nodes]
-        self._second_node_qubits = self._all_qubits[self._num_qubits_nodes:]
+        self._all_qubits: Quant = self._proc.alloc(self._num_qubits_total)
+        self._first_node_qubits: list[Quant] = self._all_qubits[:self._num_qubits_nodes]
+        self._second_node_qubits: list[Quant] = self._all_qubits[self._num_qubits_nodes:]
 
         self._probabilities : list[list[float]] = []
         self._steps : int = 0
 
-    def __getAmplitudeOfNode(self, node : int) -> list[complex]:
-        magnitude = norm(self._adjacency_list[node]["weights"])
-        normalized_weights = self._adjacency_list[node]["weights"].copy()
+    def __getAmplitudeOfNode(self, node : int) -> list[float]:
+
+        magnitude: float = norm(self._adjacency_list[node]["weights"])  # ty: ignore[invalid-assignment]
+        normalized_weights: list[float] = self._adjacency_list[node]["weights"].copy()
+
         if magnitude != 0:
-            normalized_weights /= magnitude
-        amplitude = [0 for _ in range(2 ** self._num_qubits_nodes)]
+            normalized_weights /= magnitude  # ty: ignore[unsupported-operator]
+        amplitude = [0.0 for _ in range(2 ** self._num_qubits_nodes)]
+
         for i in range(len(normalized_weights)):
-            amplitude[self._adjacency_list[node]["neighbors"][i]] = normalized_weights[i]
+            amplitude[self._adjacency_list[node]["neighbors"][i]] = normalized_weights[i]  # ty: ignore[invalid-assignment]
+
         return amplitude
 
     def __getState(self, node : int) -> list[int]:
@@ -143,45 +169,45 @@ class DTQW:
 
         # Selecting fist node
         amplitudes = [1/sqrt(self._num_nodes) if i < self._num_nodes else 0 for i in range(2 ** self._num_qubits_nodes)]
-        ket_state_prep(amplitudes, self._first_node_qubits)
+        ket_state_prep(amplitudes, self._first_node_qubits)  # ty: ignore[invalid-argument-type] | ket accepts list of Quants
 
         # Selecting second node based on the first
-        for node in self._adjacency_list.keys():
+        for node in self._adjacency_list:
 
             amps = self.__getAmplitudeOfNode(node)
             amps = [1/sqrt(len(self._adjacency_list[node]["weights"])) if a > 0 else 0 for a in amps]
             state = self.__getState(node)
 
-            with control(self._first_node_qubits, state):
-                ket_state_prep(amps, self._second_node_qubits)
+            with control(self._first_node_qubits, state):  # ty: ignore[invalid-argument-type] | ket accepts list of Quants
+                ket_state_prep(amps, self._second_node_qubits)  # ty: ignore[invalid-argument-type] | ket accepts list of Quants
 
     def __prepareCircuitFromStartingNode(self, node : int) -> None:
 
         amplitudes = [1 if i == node else 0 for i in range(2 ** self._num_qubits_nodes)]
-        ket_state_prep(amplitudes, self._first_node_qubits)
+        ket_state_prep(amplitudes, self._first_node_qubits)  # ty: ignore[invalid-argument-type]
 
         amps = self.__getAmplitudeOfNode(node)
         state = self.__getState(node)
 
-        with control(self._first_node_qubits, state):
-            ket_state_prep(amps, self._second_node_qubits)
+        with control(self._first_node_qubits, state):  # ty: ignore[invalid-argument-type]
+            ket_state_prep(amps, self._second_node_qubits)  # ty: ignore[invalid-argument-type]
 
     def __coin(self, node : int) -> None:
 
         amplitude = self.__getAmplitudeOfNode(node)
         state = self.__getState(node)
 
-        with control(self._first_node_qubits, state):
+        with control(self._first_node_qubits, state):  # ty: ignore[invalid-argument-type]
 
-            adj(ket_state_prep)(amplitude, self._second_node_qubits)
+            adj(ket_state_prep)(amplitude, self._second_node_qubits)  # ty: ignore[invalid-argument-type, too-many-positional-arguments]
 
-            X(self._second_node_qubits)
+            X(self._second_node_qubits)  # ty: ignore[invalid-argument-type]
             H(self._second_node_qubits[-1])
-            ctrl(self._second_node_qubits[:-1], X)(self._second_node_qubits[-1])
+            ctrl(self._second_node_qubits[:-1], X)(self._second_node_qubits[-1])  # ty: ignore[invalid-argument-type]
             H(self._second_node_qubits[-1])
-            X(self._second_node_qubits)
+            X(self._second_node_qubits)  # ty: ignore[invalid-argument-type]
 
-            ket_state_prep(amplitude, self._second_node_qubits)
+            ket_state_prep(amplitude, self._second_node_qubits)  # ty: ignore[invalid-argument-type]
 
     def __shift(self) -> None:
         for i in range(self._num_qubits_nodes):
@@ -194,9 +220,9 @@ class DTQW:
         for i in dump_dict:
             dump_dict[i] = dump_dict[i] ** 2
 
-        data = [0 for _ in range(self._num_nodes)]
+        data = [0.0 for _ in range(self._num_nodes)]
 
-        for key in dump_dict.keys():
+        for key in dump_dict:
             binary_total = bin(key)[2:].zfill(self._num_qubits_total)
             binary_node = binary_total[:self._num_qubits_nodes]
             data[int(binary_node, 2)] += abs(dump_dict[key])
@@ -208,7 +234,7 @@ class DTQW:
         steps : int,
         register_probabilities : str = "last", # "all", "last" or "none"
         starting_node : int = -1,
-        state_prep_list : list[complex] = []
+        state_prep_list : list[complex] = []  # noqa: B006
     ) -> None:
 
         if steps < 1:
@@ -238,7 +264,7 @@ class DTQW:
 
         for _ in range(steps):
 
-            for node in self._adjacency_list.keys():
+            for node in self._adjacency_list:
                 self.__coin(node)
 
             self.__shift()
@@ -252,14 +278,14 @@ class DTQW:
     def plotProbabilities(
         self,
         projection : str = "2d",
-        nodes : list[int] = []
+        nodes : list[int] = []  # noqa: B006
     ) -> None:
 
         if self._probabilities == []:
             raise ValueError("No probabilities available")
 
         if len(self._probabilities) == 1: # In case of only registering the final probability
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
             ax.bar(range(self._num_nodes), self._probabilities[0])
 
             ax.set_xlabel("nodes")
@@ -288,7 +314,7 @@ class DTQW:
                 dy = [0.5 for i in range(z_size)]
                 dz = []
 
-                fig, ax = plt.subplots(subplot_kw={"projection" : "3d"})
+                _, ax = plt.subplots(subplot_kw={"projection" : "3d"})
                 for i in range(self._steps):
                     if nodes == []:
                         x += [j - 0.25 for j in range(self._num_nodes)]
@@ -297,29 +323,27 @@ class DTQW:
                     else:
                         x += [j - 0.25 for j in range(len(nodes))]
                         y += [i + 0.75 for k in nodes]
-                        temp = [0 for _ in range(len(nodes))]
+                        temp = [0.0 for _ in range(len(nodes))]
                         for j in range(len(nodes)):
                             temp[j] = self._probabilities[i][nodes[j]]
                         dz += temp.copy()
-
-                print(x)
 
                 ax.set_xlabel("nodes")
                 if nodes == []:
                     ax.set_xticks(list(range(self._num_nodes)))
                 else:
-                    ax.set_xticks(list(range(len(nodes))), nodes)
+                    ax.set_xticks(list(range(len(nodes))), nodes)  # ty: ignore[invalid-argument-type]
 
                 ax.set_ylabel("steps")
                 ax.set_yticks(list(range(1, self._steps + 1)))
 
-                ax.set_zlabel("probability")
+                ax.set_zlabel("probability")  # ty: ignore[unresolved-attribute]
 
-                cmap = cm.inferno
+                cmap = cm.inferno  # ty: ignore[unresolved-attribute]
                 norm = Normalize(vmin=min(dz), vmax=max(dz))
                 colors = cmap(norm(dz))
 
-                ax.bar3d(x, y, z, dx, dy, dz, shade=True, color=colors, zsort='max')
+                ax.bar3d(x, y, z, dx, dy, dz, shade=True, color=colors, zsort='max')  # ty: ignore[unresolved-attribute]
 
 
             if projection.lower() == "2d":
@@ -333,7 +357,7 @@ class DTQW:
                 colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'tab:purple', 'tab:orange', 'tab:pink']
                 used_colors = 0
 
-                fig, ax = plt.subplots()
+                _, ax = plt.subplots()
 
                 ax.set_xlabel("steps")
                 ax.set_xticks(list(range(1, self._steps + 1)))
@@ -383,16 +407,16 @@ class DTQW:
         self._first_node_qubits = self._all_qubits[:self._num_qubits_nodes]
         self._second_node_qubits = self._all_qubits[self._num_qubits_nodes:]
 
-    def getDegree(self, node : int) -> dict[str, int]:
+    def getDegree(self, node : int) -> dict[str, float]:
 
         if node > self._num_nodes-1 or node < 0:
             raise ValueError(f"node must be between 0 and {self._num_nodes-1}")
 
-        deg = {}
+        deg: dict[str, float] = {}
         deg["in"] = 0
         deg["out"] = 0
 
-        for n in self._adjacency_list.keys():
+        for n in self._adjacency_list:
             if n == node:
                 for weight in self._adjacency_list[n]["weights"]:
                     deg["out"] += weight
@@ -521,8 +545,8 @@ if __name__ == "__main__":
 
     G: Graph = nx.from_dict_of_lists(study_matrix)
     example = DTQW(G)
-    example.simulate(steps=1, register_probabilities="last")
-    example.plotProbabilities()
+    example.simulate(steps=2, register_probabilities="all")
+    example.plotProbabilities("3d")
     #example.draw()
     #print(example._probabilities[0])
 
