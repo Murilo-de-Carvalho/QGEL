@@ -15,4 +15,5 @@ dependencies = [
     "pylatexenc>=2.10",
     "pyqt6>=6.10.2",
     "scipy>=1.17.1",
+    "typeguard>=4.6.0",
 ]
