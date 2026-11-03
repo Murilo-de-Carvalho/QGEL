@@ -10,5 +10,5 @@ wheels/
 .venv
 
 # testing files
-temp.py
-test.py
+src/qgel/temp.py
+src/qgel/test.py

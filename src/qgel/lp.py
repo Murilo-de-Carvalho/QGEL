@@ -1,4 +1,4 @@
-from dtqw import DTQW, Any, Graph, Node, complexfloating, dtype, ndarray, plt
+from qgel.dtqw import DTQW, Any, Graph, Node, complexfloating, dtype, ndarray, plt
 
 
 class Link_Prediction:

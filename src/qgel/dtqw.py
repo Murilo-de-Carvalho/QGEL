@@ -164,7 +164,7 @@ class DTQW:
 
         # Uniformly distributing the amplitude across all nodes
         amplitudes: list[complex] = [1/sqrt(self._num_nodes) if i < self._num_nodes else 0.0 for i in range(self.__num_binary_states_node)]
-        ket_state_prep(amplitudes, self._first_node_qubits)            # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+        ket_state_prep(amplitudes, self._first_node_qubits)            # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
 
         for node_id, node in enumerate(self._adjacency_list):
 
@@ -172,25 +172,25 @@ class DTQW:
             amps: list[complex] = [1/sqrt(len(node.weights)) if a != 0.0 else 0.0 for a in temp_amplitude]
             state = self.__get_state(node_id)
 
-            with control(self._first_node_qubits, state):   # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
-                ket_state_prep(amps, self._second_node_qubits)         # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+            with control(self._first_node_qubits, state):   # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
+                ket_state_prep(amps, self._second_node_qubits)         # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
 
     def __coin(self, node_id: int) -> None:
 
         amplitude = self.__get_amplitude(node_id)
         state = self.__get_state(node_id)
 
-        with control(self._first_node_qubits, state):                                   # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+        with control(self._first_node_qubits, state):                                   # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
 
             adj(ket_state_prep)(amplitude, self._second_node_qubits)                              # ty: ignore[invalid-argument-type, too-many-positional-arguments] | Ket being quirky
 
-            X(self._second_node_qubits)                                                                # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+            X(self._second_node_qubits)                                                                # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
             H(self._second_node_qubits[-1])
-            ctrl(self._second_node_qubits[:-1], X)(self._second_node_qubits[-1])   # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+            ctrl(self._second_node_qubits[:-1], X)(self._second_node_qubits[-1])   # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
             H(self._second_node_qubits[-1])
-            X(self._second_node_qubits)                                                                # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+            X(self._second_node_qubits)                                                                # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
 
-            ket_state_prep(amplitude, self._second_node_qubits)                                    # ty: ignore[invalid-argument-type] | Ket handle list[Quant]
+            ket_state_prep(amplitude, self._second_node_qubits)                                    # ty: ignore[invalid-argument-type] | Ket handles list[Quant]
 
     def __shift(self) -> None:
         for i in range(self._num_qubits_node):
@@ -200,7 +200,7 @@ class DTQW:
 
     def __get_probabilities(self) -> None:
 
-        dump_dict = dump(self._all_qubits).get()
+        dump_dict = dump(self._all_qubits).get()                                   # ty: ignore[invalid-argument-type] | Ket handles Quant
 
         for i in dump_dict:
             dump_dict[i] = dump_dict[i] ** 2
@@ -327,7 +327,7 @@ class DTQW:
 
                 ax.set_zlabel("probability")                                          # ty: ignore[unresolved-attribute] | plt being quirky
 
-                cmap = cm.inferno                                            # ty: ignore[unresolved-attribute] | plt being quirky
+                cmap = cm.inferno
                 norm = Normalize(vmin=min(dz), vmax=max(dz))
                 colors = cmap(norm(dz))
 
