@@ -16,10 +16,90 @@ from typeguard import TypeCheckError, check_type
 
 @dataclass
 class Node:
+    """
+    Simple dataclass used for packaging data of neighbors nodes
+    and the weights of the connections between those nodes.
+
+    Examples
+    --------
+    In the graph described by this weighted adjacency matrix::
+            [0,    1, 0.5]
+            [1,    0,  -3]
+            [0.5, -3,   0]
+
+    The neighbors of node 0 are 1 and 2, because they're connected
+    and the weights are, respectively, 1 and 0.5.
+
+    Therefore, we can make build the nodes such as:
+    >>> n0 = Node(neighbors=[1, 2], weights=[1,  0.5])
+    >>> n1 = Node(neighbors=[0, 2], weights=[1,   -3])
+    >>> n2 = Node(neighbors=[0, 1], weights=[0.5, -3])
+    """
+
     neighbors: list[int]
     weights: list[complex]
 
 class DTQW:
+    """
+    Class for discrete-time quantum walks.
+
+    A DTQW stores a list of Nodes, the respective nx Graph and
+    the circuit if it has been simulated.
+
+    Parameters
+    ----------
+    graph : Graph | list[list[int]] | list[Node] | ndarray[Any, dtype[complexfloating]]
+        Representation of the graph you want to work on.
+
+    Examples
+    --------
+    Creating dtqw from a simple non-weighted adjacency matrix:
+    >>> adj_matrix = [
+    >>>     [0, 1, 1],
+    >>>     [1, 0, 0],
+    >>>     [0, 1, 0]
+    >>> ]
+    >>> walk = DTQW(graph=adj_matrix)
+
+    From a nx Graph:
+    >>> G = nx.gnp_random_graph(100, 0.3) # Random graph with 100 nodes
+    >>> walk = DTQW(G)
+
+    **Methods:**
+
+    Simulate and build circuit:
+
+    >>> walk.simulate(steps=10) # Circuit for dtqw of 10 steps
+
+    Simulating with more control:
+
+    >>> walk.simulate(steps=12, register_probabilities="all", starting_node=2)
+    >>> walk.simulate(steps=7, register_probabilities="none", state_prep_list=[1/sqrt(2),0,1/sqrt(2),0])
+
+    Plotting the probability (ampitude) of each node in a plt graph:
+
+    >>> walk.plot_probabilities()
+    >>> walk.plot_probabilities(projection="3d")
+    >>> walk.plot_probabilities(projection="2d", nodes=[2, 5, 9])
+
+    Drawing the graph with plt:
+
+    >>> walk.draw()
+    >>> walk.draw(show_labels=False)
+
+    Getting the degree of a specific node:
+
+    >>> deg: dict[str, complex] = walk.get_degree(node_id=3)
+
+    Resetting the dtqw for another simulation:
+
+    >>> walk.reset()
+
+    Raises
+    ------
+    ValueError
+        When inputting a type not supported as a graph representation.
+    """
 
     def __handle_nxgraph(self, graph) -> bool:
 
@@ -220,9 +300,49 @@ class DTQW:
         self,
         steps : int,
         register_probabilities : str = "last", # "all", "last" or "none"
-        starting_node : int = -1,
+        starting_node_id : int = -1,
         state_prep_list : list[complex] = []  # noqa: B006
     ) -> None:
+
+        """
+        Simulate the DTQW and builds the circuit.
+
+        Parameters
+        ----------
+        steps : int
+            Amount of steps the DTQW will take.
+
+        register_probabilities: str
+            Which probabilities will the class store, if any. Options: 'all', 'last' or 'none'. If steps == 1, 'all' and 'last' make no difference.
+            (optional, defaults to 'last').
+
+        starting_node_id : int
+            Defines the starting point of the DTQW, if you choose to start from a single point. -1 means "start from all nodes".
+            (optional, defaults to -1).
+            #### !INCOMPATIBLE WITH state_prep_list
+
+        state_prep_list: list[complex]
+            List of amplitudes for the initial state of the DTQW. empty means uniform distribution among all possible states.
+            (optional, defaults to empty).
+            #### !INCOMPATIBLE WITH starting_node_id
+
+        Raises
+        ------
+        ValueError
+            When steps is a non-positive value.
+
+        ValueError
+            When register_probabilities is not 'all', 'last' or 'none'.
+
+        ValueError
+            When register_probabilities and starting_node_id are both defined as a non-default value.
+
+        ValueError
+            When starting_node_id is outside the range between 0 and self._num_node-1.
+
+        ValueError
+            When state_prep_list element count is not 2 ** (self._num_qubits_total).
+        """
 
         if steps < 1:
             raise ValueError("steps must be a positive integer")
@@ -230,14 +350,14 @@ class DTQW:
         if register_probabilities != "last" and register_probabilities != "all" and register_probabilities != "none":
             raise ValueError("register_probabilities must be: 'all', 'last' or 'none'")
 
-        if state_prep_list != [] and starting_node != -1:
-            raise ValueError("starting_node and state_prep_list are mutually exclusive, please choose one")
+        if state_prep_list != [] and starting_node_id != -1:
+            raise ValueError("starting_node_id and state_prep_list are mutually exclusive, please choose one")
 
         # Decided to simply ignore negative numbers, might change it in the future
-        elif starting_node >= 0:
-            if starting_node > self._num_nodes-1:
-                raise ValueError(f"starting_node must be between 0 and {self._num_nodes-1}")
-            self.__prepare_circuit_from_node(starting_node)
+        elif starting_node_id >= 0:
+            if starting_node_id > self._num_nodes-1:
+                raise ValueError(f"starting_node_id must be between 0 and {self._num_nodes-1}")
+            self.__prepare_circuit_from_node(starting_node_id)
 
         elif state_prep_list != []:
             if len(state_prep_list) != 2 ** (self._num_qubits_total):
@@ -268,6 +388,29 @@ class DTQW:
         projection : str = "2d",
         nodes : list[int] = []  # noqa: B006
     ) -> None:
+
+        """
+        Plots the amplitude(s) of each node using plt
+
+        Parameters
+        ----------
+        projection : str
+            Projection of the graph, '2d' or '3d'. If it has only one probability list,
+            even when 3d is set, the graph will be '2d'. (optional, defaults to '2d')
+
+        nodes: list[int]
+            List of the node ids you want to see, only those nodes probabilities will be shown. Empty means all nodes.
+            (optional, defaults to empty)
+
+        Raises
+        ------
+        ValueError
+            When trying to plot with no probability list stored. Simulate the DTQW first.
+
+        ValueError
+            When trying to plot multiple amplitudes with the '2d' projection and more than 10 nodes at once.
+            in this case, only the '3d' projection will allow visualization or choose at most 10 nodes to view.
+        """
 
         if self._probabilities == []:
             raise ValueError("No probabilities available")
@@ -336,11 +479,8 @@ class DTQW:
 
             if projection.lower() == "2d":
 
-                if len(nodes) > 10:
-                    raise ValueError("This type of plotting only allows 10 nodes visible at once for clarity")
-
-                if nodes == [] and self._num_nodes > 10:
-                    raise ValueError("There are more than 10 nodes on this graph, please specify at maximum 10 nodes to view at a time")
+                if len(nodes) > 10 or self._num_nodes > 10:
+                    raise ValueError("You are trying to visualize more than 10 nodes at once, please specify at maximum 10 nodes to view at a time. This constraint is here to make the plotting more cohesive")
 
                 colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k', 'tab:purple', 'tab:orange', 'tab:pink']
                 used_colors = 0
@@ -381,11 +521,23 @@ class DTQW:
         plt.clf()
 
     def draw(self, show_labels : bool = True) -> None:
+        """
+        Draws the graph with nx.draw and plt.
+
+        Parameters
+        ----------
+        show_labels : bool
+            defines if the drawing will show the node's id (optional, defaults to True).
+        """
+
         nx.draw(self._nxgraph, with_labels=show_labels, node_size=400, font_size=13, node_color="black", font_color="white")
         plt.show()
         plt.clf()
 
     def reset(self) -> None:
+        """
+        Resets the DTQW list of probabilities like it has never been simulated.
+        """
 
         self._probabilities : list[list[float]] = []
         self._steps = 0
@@ -396,6 +548,24 @@ class DTQW:
         self._second_node_qubits = self._all_qubits[self._num_qubits_node:]
 
     def get_degree(self, node_id: int) -> dict[str, complex]:
+        """
+        Given a node_id, returns the degree of that node.
+
+        Parameters
+        ----------
+        node_id : int
+            number ranging from 0 to self._num_nodes-1.
+
+        Returns
+        -------
+        dict[str, complex]
+            dictionary with "in" and "out" entries, each with its corresponding value.
+
+        Raises
+        ------
+        ValueError
+            When inputting a value outside the range between 0 and self._num_node-1.
+        """
 
         if node_id > self._num_nodes-1 or node_id < 0:
             raise ValueError(f"node_id must be between 0 and {self._num_nodes-1}")
@@ -431,5 +601,6 @@ if __name__ == "__main__":
 
     d = DTQW(study_matrix)
     d.simulate(1)
+    nx.gnp_random_graph(100, 0.3)
     #d.plot_probabilities()
     d.draw()
