@@ -1,4 +1,5 @@
 #import matplotlib.pyplot as plt
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +12,24 @@ from matplotlib.colors import Normalize
 from networkx.classes.graph import Graph
 from numpy import array, ceil, complexfloating, dtype, log2, ndarray, sqrt
 from numpy.linalg import norm
+from qiskit import QuantumCircuit
+from qiskit.circuit.library import (
+    HGate,
+    PhaseGate,
+    RXGate,
+    RYGate,
+    RZGate,
+    SdgGate,
+    SGate,
+    SXGate,
+    TdgGate,
+    TGate,
+    UGate,
+    XGate,
+    YGate,
+    ZGate,
+)
+from qiskit.primitives import StatevectorSampler
 from typeguard import TypeCheckError, check_type
 
 
@@ -468,13 +487,13 @@ class DTQW:
                 ax.set_ylabel("steps")
                 ax.set_yticks(list(range(1, self._steps + 1)))
 
-                ax.set_zlabel("probability")                                          # ty: ignore[unresolved-attribute] | plt being quirky
+                ax.set_zlabel("probability")                                          # ty: ignore[missing-attribute] | plt being quirky
 
                 cmap = cm.inferno
                 norm = Normalize(vmin=min(dz), vmax=max(dz))
                 colors = cmap(norm(dz))
 
-                ax.bar3d(x, y, z, dx, dy, dz, shade=True, color=colors, zsort='max')  # ty: ignore[unresolved-attribute] | plt being quirky
+                ax.bar3d(x, y, z, dx, dy, dz, shade=True, color=colors, zsort='max')  # ty: ignore[missing-attribute] | plt being quirky
 
 
             if projection.lower() == "2d":
@@ -585,6 +604,66 @@ class DTQW:
 
         return degree
 
+    def qiskit_circuit(self) -> QuantumCircuit:
+
+        gates_json= self._proc.gates_json()
+        gates_data = json.loads(gates_json)
+        num_qubits = self._num_qubits_total
+
+        qc = QuantumCircuit(num_qubits)
+
+        gate_map = {
+        "H": HGate,     "Hadamard": HGate,
+        "X": XGate,     "PauliX": XGate,
+        "Y": YGate,     "PauliY": YGate,
+        "Z": ZGate,     "PauliZ": ZGate,
+        "S": SGate,     "SD": SdgGate,
+        "T": TGate,     "TD": TdgGate,
+        "SX": SXGate,
+        "P": PhaseGate, "Phase": PhaseGate,
+        "RX": RXGate,   "RotationX": RXGate,
+        "RY": RYGate,   "RotationY": RYGate,
+        "RZ": RZGate,   "RotationZ": RZGate,
+        "U3": UGate,
+        }
+
+        for inst in gates_data:
+
+            if (type(inst.get("gate")) == str):
+                gate_name = inst.get("gate")
+                payload = {}
+
+            else:
+                gate_data: dict = inst.get("gate")
+                gate_name = next(iter(gate_data.keys()))
+                payload: dict = gate_data.get(gate_name)  # ty: ignore[invalid-assignment]
+
+            payload["target"] = inst.get("target")
+            payload["control"] = inst.get("control")
+            payload["control_locked"] = inst.get("control_locked")
+            payload["is_approximated"] = inst.get("is_approximated")
+            payload["decomposed"] = inst.get("decomposed")
+
+            #print(gate_name)
+            if gate_name not in gate_map:
+                raise ValueError(f"Unsupported Ket gate: {gate_name}")
+
+            params = []
+            if "Value" in payload:
+                params = [payload["Value"]]
+
+            base_gate = gate_map[gate_name](*params)
+
+            target = payload["target"]
+            controls = payload.get("control")
+
+            if controls:
+                controlled_gate = base_gate.control(len(controls))
+                qc.append(controlled_gate, [*controls, target])
+            else:
+                qc.append(base_gate, [target])
+
+        return qc
 
 if __name__ == "__main__":
 
@@ -600,7 +679,25 @@ if __name__ == "__main__":
     ]
 
     d = DTQW(study_matrix)
-    d.simulate(1)
-    nx.gnp_random_graph(100, 0.3)
+    d.simulate(1, 'none')
+    #nx.gnp_random_graph(100, 0.3)
     #d.plot_probabilities()
-    d.draw()
+    #d.draw()
+    qc = d.qiskit_circuit()
+    qc.measure_all()
+    sampler = StatevectorSampler()
+    job = sampler.run([qc], shots=1000)
+    counts: dict = job.result()[0].data.meas.get_counts()  # ty: ignore[missing-attribute]
+
+    dic = {}
+    for i in range(d._num_nodes):
+        dic[i] = 0
+
+    for key, value in counts.items():
+        print(key, value)
+        print(int(key[:3], 2))
+        dic[int(key[:3], 2)] += value
+
+    plt.bar(dic.keys(), dic.values())  # ty: ignore[invalid-argument-type]
+    plt.show()
+    #print(counts)
