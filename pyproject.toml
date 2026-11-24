@@ -1,6 +1,7 @@
 [project]
 name = "qgel"
 version = "0.1.0"
+license = { file = "LICENSE.md" }
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
